@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.ogzkesk.exceptionguard"
-version = "1.0.0"
+version = "1.0.1"
 
 repositories {
     mavenCentral()
@@ -29,7 +29,7 @@ intellijPlatform {
         }
 
         changeNotes = """
-            Initial version
+            Update deprecated
         """.trimIndent()
     }
 }

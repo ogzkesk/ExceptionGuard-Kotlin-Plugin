@@ -8,11 +8,12 @@ import com.ogzkesk.exceptionguard.action.SuppressAction
 import com.ogzkesk.exceptionguard.action.TryCatchAction
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.analyze
+import org.jetbrains.kotlin.analysis.api.resolution.KaFunctionCall
+import org.jetbrains.kotlin.analysis.api.resolution.singleCallOrNull
 import org.jetbrains.kotlin.analysis.api.resolution.symbol
 import org.jetbrains.kotlin.analysis.api.types.symbol
 import org.jetbrains.kotlin.idea.codeinsight.api.classic.inspections.AbstractKotlinInspection
 import org.jetbrains.kotlin.idea.codeinsight.utils.findExistingEditor
-import org.jetbrains.kotlin.idea.codeinsight.utils.resolveFunctionCall
 import org.jetbrains.kotlin.kdoc.psi.impl.KDocSection
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.getPossiblyQualifiedCallExpression
@@ -49,8 +50,10 @@ class UncaughtExceptionInspection : AbstractKotlinInspection() {
                 onThrowFound: (psi: PsiElement, throws: Set<String>) -> Unit
             ) {
                 analyze(expression) {
-                    val resolved = resolveFunctionCall(expression) ?: return@analyze
-                    val psi = resolved.symbol.psi ?: return@analyze
+
+                    val callInfo = expression.resolveToCall()
+                    val resolved = callInfo?.singleCallOrNull<KaFunctionCall<*>>()
+                    val psi = resolved?.symbol?.psi ?: return
 
                     val declaredExceptions = checkDeclaredExceptions(psi)
                     if (declaredExceptions.isNotEmpty()) {
@@ -116,8 +119,9 @@ class UncaughtExceptionInspection : AbstractKotlinInspection() {
                                     expression.thrownExpression?.getPossiblyQualifiedCallExpression() ?: return
 
                                 analyze(callExpr) {
-                                    val resolved = resolveFunctionCall(callExpr) ?: return@analyze
-                                    val returnType = resolved.symbol.returnType
+                                    val callInfo = expression.resolveToCall()
+                                    val resolved = callInfo?.singleCallOrNull<KaFunctionCall<*>>()
+                                    val returnType = resolved?.symbol?.returnType ?: return
                                     val shortName =
                                         returnType.symbol?.classId?.shortClassName?.asString() ?: UNKNOWN
 
