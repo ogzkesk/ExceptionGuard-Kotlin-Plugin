@@ -235,7 +235,7 @@ class UncaughtExceptionInspection : AbstractKotlinInspection() {
         const val SUPPRESS_NAME = "KNOWN_EXCEPTION"
         const val SUPPRESS_NAME_SECOND = "ALL"
         const val SUPPRESS_ANNOTATION = "Suppress"
-        const val THROWS_ANNOTATION = "Suppress"
+        const val THROWS_ANNOTATION = "Throws"
         const val DOC_TAG = "throws"
         const val UNKNOWN = "Unknown"
     }
