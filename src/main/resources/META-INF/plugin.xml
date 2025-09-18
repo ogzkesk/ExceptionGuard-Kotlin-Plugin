@@ -37,8 +37,8 @@
 
         <localInspection
                 language="kotlin"
-                displayName="Uncaught Exception Detection"
-                groupName="Exception Guard"
+                displayName="Uncaught exception detection"
+                groupName="Exception guard"
                 enabledByDefault="true"
                 level="WARNING"
                 implementationClass="com.ogzkesk.exceptionguard.inspection.UncaughtExceptionInspection"/>
