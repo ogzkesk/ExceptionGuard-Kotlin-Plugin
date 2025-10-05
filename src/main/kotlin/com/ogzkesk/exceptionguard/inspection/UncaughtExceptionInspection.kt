@@ -30,6 +30,7 @@ class UncaughtExceptionInspection : AbstractKotlinInspection() {
 
                 if (expression.containingKtFile.isScript()) return
                 if (expression.findExistingEditor()?.isDisposed == true) return
+                if (isInsideRunCatching(expression)) return
                 if (isInsideTryCatch(expression)) return
                 if (isSuppressed(expression)) return
 
@@ -77,6 +78,12 @@ class UncaughtExceptionInspection : AbstractKotlinInspection() {
                     val bodyExceptions = checkBody(psi)
                     if (bodyExceptions.isNotEmpty()) {
                         onThrowFound(psi, bodyExceptions)
+                        return
+                    }
+
+                    val localExceptions = checkLocalKotlinFiles(psi)
+                    if (localExceptions.isNotEmpty()) {
+                        onThrowFound(psi, localExceptions)
                     }
                 }
             }
@@ -115,9 +122,9 @@ class UncaughtExceptionInspection : AbstractKotlinInspection() {
                             override fun visitThrowExpression(expression: KtThrowExpression) {
                                 super.visitThrowExpression(expression)
                                 if (isInsideTryCatch(expression)) return
+                                if (isInsideRunCatching(expression)) return
                                 val callExpr =
                                     expression.thrownExpression?.getPossiblyQualifiedCallExpression() ?: return
-
                                 analyze(callExpr) {
                                     val callInfo = expression.resolveToCall()
                                     val resolved = callInfo?.singleCallOrNull<KaFunctionCall<*>>()
@@ -206,6 +213,34 @@ class UncaughtExceptionInspection : AbstractKotlinInspection() {
                 return false
             }
 
+            private fun isInsideRunCatching(expression: KtExpression): Boolean {
+                var parent = expression.parent
+                while (parent != null) {
+                    if (parent is KtCallExpression) {
+                        val calleeExpression = parent.calleeExpression
+                        if (calleeExpression is KtNameReferenceExpression) {
+                            val name = calleeExpression.getReferencedName()
+                            if (name == "runCatching") {
+                                parent.lambdaArguments.forEach { lambdaArg ->
+                                    val lambdaExpr = lambdaArg.getLambdaExpression()
+                                    if (lambdaExpr?.textRange?.contains(expression.textRange) == true) {
+                                        return true
+                                    }
+                                }
+                                parent.valueArgumentList?.arguments?.forEach { arg ->
+                                    val lambdaExpr = arg.getArgumentExpression() as? KtLambdaExpression
+                                    if (lambdaExpr?.textRange?.contains(expression.textRange) == true) {
+                                        return true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    parent = parent.parent
+                }
+                return false
+            }
+
             private fun isSuppressed(expression: KtCallExpression): Boolean {
                 var current: PsiElement? = expression
                 while (current != null) {
@@ -228,6 +263,49 @@ class UncaughtExceptionInspection : AbstractKotlinInspection() {
                     current = current.parent
                 }
                 return false
+            }
+
+            private fun checkLocalKotlinFiles(psiElement: PsiElement): Set<String> {
+                val exceptions = mutableSetOf<String>()
+
+                val functionCall = psiElement as? KtNamedFunction
+                functionCall?.accept(object : KtTreeVisitorVoid() {
+                    override fun visitThrowExpression(expression: KtThrowExpression) {
+                        super.visitThrowExpression(expression)
+                        val shortName = getThrowShortName(expression) ?: return
+                        exceptions.add(shortName)
+                    }
+                })
+
+                val constructorCall = psiElement as? KtConstructor<*>
+                if (constructorCall != null) {
+                    constructorCall.accept(object : KtTreeVisitorVoid() {
+                        override fun visitThrowExpression(expression: KtThrowExpression) {
+                            super.visitThrowExpression(expression)
+                            val shortName = getThrowShortName(expression) ?: return
+                            exceptions.add(shortName)
+                        }
+                    })
+
+                    val initBlock = constructorCall.getContainingClassOrObject()
+                    initBlock.getAnonymousInitializers().forEach {
+                        it.accept(object : KtTreeVisitorVoid() {
+                            override fun visitThrowExpression(expression: KtThrowExpression) {
+                                super.visitThrowExpression(expression)
+                                val shortName = getThrowShortName(expression) ?: return
+                                exceptions.add(shortName)
+                            }
+                        })
+                    }
+                }
+
+                return exceptions
+            }
+
+            private fun getThrowShortName(expression: KtThrowExpression): String? {
+                if (isInsideTryCatch(expression)) return null
+                if (isInsideRunCatching(expression)) return null
+                return expression.thrownExpression?.getPossiblyQualifiedCallExpression()?.text
             }
         }
 
