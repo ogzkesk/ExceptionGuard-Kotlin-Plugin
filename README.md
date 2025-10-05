@@ -38,3 +38,6 @@ From JetBrains Marketplace
 
 ## 🖼️ Screenshots
 <p align="center"> <img src="https://raw.githubusercontent.com/ogzkesk/ExceptionGuard/refs/heads/main/throws.jpg" width="600"/> </p>
+
+EDIT: 
+Pushed version 1.0.3: It will also check runCatching blocks and wont be highlighted if found. And for local kotlin files constructor, initblock, function checks added.
